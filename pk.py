@@ -42,9 +42,15 @@ class Window(tk.Canvas):
         self.master.destroy()
         # TODO check if window is destroyed and assert an error if so
 
+    # sets the background colour of the window
+    @autoflush
+    def setBg(self, colour):
+        self.config(bg=colour)
+
 
 if __name__ == '__main__':
     window = Window()
+    window.setBg('red')
 
     while True:
         window.update()
