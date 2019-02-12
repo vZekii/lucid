@@ -49,68 +49,73 @@ class Window(tk.Canvas):
 
 
 class Object:
-    def __init__(self):
+    def __init__(self, window):
+        self.window = window
         self.id = None
-
-    def draw(self):
-        # add it to window items
-        self.id = self._draw()
-        _master.update()
+        self.bbox_id = None
 
     def _draw(self):
         pass # override this
 
+    def draw(self, bbox=False):
+        # draw the shape
+        self.id = self._draw()
+        if bbox:
+            self.bbox_id = self.get_bbox()
 
-class Line(Object):
+        _master.update()
+
+    def draw_bbox(self, value):
+        if isinstance(value, bool):
+            self.bbox = value
+
+    def get_bbox(self):
+        pass # override
+
+
+class BBox(Object):
+    # Bounding box for box-shaped objects
     def __init__(self, window, x, y, width, height):
         self.x = float(x)
         self.y = float(y)
-        self.width = width
-        self.height = height
-        self.window = window
-        Object.__init__(self)
+        self.width = float(width)
+        self.height = float(height)
+        self.cx = self.x + (self.width / 2)
+        self.cy = self.y + (self.height / 2)
+        Object.__init__(self, window)
+
+    def get_bbox(self):
+        return tk.Canvas.create_rectangle(self.window, self.x, self.y, self.width, self.height, outline='green', width='2')
+
+
+class Line(BBox):
+    def __init__(self, window, x, y, width, height):
+        BBox.__init__(self, window, x, y, width, height)
 
     def _draw(self):
-        # draw line
         # tk uses x1 y1 x2 y2 notation, which is pretty gross
         return tk.Canvas.create_line(self.window, self.x, self.y, self.x + self.width, self.y + self.height)
 
 
-class Rectangle(Object):
+class Rectangle(BBox):
     def __init__(self, window, x, y, width, height):
-        self.x = float(x)
-        self.y = float(y)
-        self.width = width
-        self.height = height
-        self.window = window
-        Object.__init__(self)
+        BBox.__init__(self, window, x, y, width, height)
 
     def _draw(self):
         return tk.Canvas.create_rectangle(self.window, self.x, self.y, self.x + self.width, self.y + self.height)
 
 
-class Circle(Object):
+class Circle(BBox):
     def __init__(self, window, x, y, radius):
-        self.x1 = float(x) - radius
-        self.y1 = float(y) - radius
-        self.x2 = float(x) + radius
-        self.y2 = float(y) + radius
-        self.window = window
-        Object.__init__(self)
+        BBox.__init__(self, window, float(x) - radius, float(y) - radius, float(x) + radius, float(y) + radius)
 
     def _draw(self):
-        return tk.Canvas.create_oval(self.window, self.x1, self.y1, self.x2, self.y2)
+        return tk.Canvas.create_oval(self.window, self.x, self.y, self.width, self.height)
 
 
-class Oval(Object):
+class Oval(BBox):
     def __init__(self, window, x, y, width, height):
-        self.x = float(x)
-        self.y = float(y)
-        self.width = width
-        self.height = height
-        self.window = window
-        # TODO redefining all the attributes for BBox related objects is redundant - make a BBox class
-        Object.__init__(self)
+        BBox.__init__(self, window, x, y, width, height)
 
     def _draw(self):
         return tk.Canvas.create_oval(self.window, self.x, self.y, self.x + self.width, self.y + self.height)
@@ -118,15 +123,19 @@ class Oval(Object):
 
 if __name__ == '__main__':
     window = Window()
-    window.setBg('red')
+    #window.setBg('red')
     myline = Line(window, 100, 100, 100, 0)
-    myline.draw()
-    mycircle = Circle(window, 100, 100, 100)
-    mycircle.draw()
+    myline.draw(bbox=True)
+    mycircle = Circle(window, 100, 100, 50)
+    mycircle.draw(bbox=True)
     myrect = Rectangle(window, 0, 0, 200, 200)
     myrect.draw()
     myoval = Oval(window, 0, 50, 200, 100)
     myoval.draw()
 
     while True:
+        window.move(myoval.id, 1, 1)
+        window.move(mycircle.id, 1, 1)
+        window.update_idletasks()
         window.update()
+        window.after(10)
