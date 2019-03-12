@@ -15,6 +15,7 @@ class Window(tk.Canvas):
 
     def __init__(self):
         self.master = tk.Toplevel(_master)
+        self.master.bind('<Destroy>', self.on_close)  # hopefully fix closing
         tk.Canvas.__init__(self, self.master, width=500, height=500)
 
         # display the canvas on the window
@@ -23,6 +24,8 @@ class Window(tk.Canvas):
 
         # management of the "X" button (closing)
         self.master.protocol('WM_DELETE_WINDOW', self.on_close)
+
+        # TODO Implement ability to change window name
 
     def autoflush(func):
         # a decorator that refreshes the window once the decorated function is run - if autoflush is true
@@ -36,7 +39,7 @@ class Window(tk.Canvas):
         return wrapper_decorator
 
     @autoflush
-    def on_close(self):
+    def on_close(self, *args):
         """Stub to manage the closing of the window
 
         Should be modifiable by the user
@@ -61,6 +64,8 @@ class Object:
     """
 
     # TODO fix weird glitch where some parts of the shape don't draw if updated too quickly (about 40+ fps)
+    # TODO make a better move function
+    # TODO maybe implement a transformation class (rotation, sizing)
     # noinspection PyShadowingNames
     def __init__(self, window):
         """
@@ -185,6 +190,40 @@ class Oval(BBox):
         return tk.Canvas.create_oval(self.window, self.x, self.y, self.x + self.width, self.y + self.height)
 
 
+class Text(Object):
+    """Creates a text object, centered on (x,y)"""
+    def __init__(self, window, x, y, text):
+        self.x, self.y = x, y
+        self.text = text
+        Object.__init__(self, window)
+
+    def _draw(self):
+        return self.window.create_text(self.x, self.y, text=self.text)
+
+
+class Entry(Object):
+    """Creates an entry box, which text and numbers can be entered into"""
+    def __init__(self, window, x, y, width, placeholder=''):
+        self.x, self.y = x, y
+        self.width = width
+        self.text = tk.StringVar(_master)
+        self.text.set(placeholder)
+        Object.__init__(self, window)
+        self.entry = None
+
+    def _draw(self):
+        frame = tk.Frame(self.window.master)
+        self.entry = tk.Entry(frame, width=self.width, textvariable=self.text)
+        self.entry.pack()
+        return self.window.create_window(self.x, self.y, window=frame)
+
+# TODO Implement Images
+# TODO Implement events (key handling, mouse handling, etc)
+# TODO Implement buttons and entries (embedded widgets)
+# TODO Implement Menubars (File, Edit, etc)
+
+
+# This is for testing
 if __name__ == '__main__':
     window = Window()
     # window.set_bg('red')
@@ -197,10 +236,14 @@ if __name__ == '__main__':
     myrect.draw()
     myoval = Oval(window, 0, 50, 200, 100)
     myoval.draw()
+    mytext = Text(window, 50, 50, 'YEET')
+    mytext.draw()
+    myentry = Entry(window, 100, 100, 20)
+    myentry.draw()
 
     while True:
         window.move(myoval.id, 1, 1)
         window.move(mycircle.id, 1, 1)
         window.update_idletasks()
         window.update()
-        window.after(10)
+        window.after(15)
