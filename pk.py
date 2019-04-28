@@ -52,7 +52,6 @@ class Window(tk.Canvas):
         :type colour: string
         """
         self.config(bg=colour)
-        # TODO implement rgb colours / class (this is done)
 
 
 class Object:
@@ -273,15 +272,34 @@ class Image(Object):
     def _draw(self): return self.window.create_image(self.x, self.y, image=self.image)
 
 
+def rgb(red, green, blue):
+    """
+    Helper function to convert an rgb colour to hex (so tkinter can understand it)
+    :param red: amount of red
+    :type red: int
+    :param green: amount of green
+    :type green: int
+    :param blue: amount of blue
+    :type blue: int
+    :return: hex string
+    """
+    color = (red, green, blue)
+    for c in color:
+        if not 0 <= c <= 255:  # checks that the values fall within the range 0-255
+            raise ValueError(f'Value {c} not within 0-255')
+
+    return f'#{red:02x}{green:02x}{blue:02x}'
+
+
 # TODO Implement events (key handling, mouse handling, etc) (95% done)
-# TODO Implement buttons and entries (embedded widgets)
+# TODO Implement buttons, listboxes, radiobuttons
 # TODO Implement Menubars (File, Edit, etc)
 
 
 # This is for testing
 if __name__ == '__main__':
     window = Window('Test window')
-    # window.set_bg('red')
+    window.set_bg(rgb(255, 20, 147))
     myimage1 = Image(window, 300, 300, 'testpng.png')
     myimage1.draw()
     myimage1.undraw()
