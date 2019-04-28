@@ -9,9 +9,7 @@ _master.withdraw()  # Hide it for background control
 
 
 class Window(tk.Canvas):
-    """Class to manage window related actions
-
-    """
+    """Class to manage window related actions """
 
     def __init__(self, width=500, height=500):
         self.master = tk.Toplevel(_master)
@@ -59,13 +57,11 @@ class Window(tk.Canvas):
 
 
 class Object:
-    """Class to manage base level attributes and commands of all objects
+    """Class to manage base level attributes and commands of all objects """
 
-    """
     # TODO fix weird glitch where some parts of the shape don't draw if updated too quickly (about 40+ fps)
     # ^^^ I'm assuming its to do with the refresh rate of the monitor
-    # TODO make a better move function
-    # TODO maybe implement a transformation class (rotation, sizing)
+    #  TODO implement sizing (maybe)
     def __init__(self, window, x, y, width, height):
         """
         :param window: window to bind the object to
@@ -81,7 +77,7 @@ class Object:
         """
         self.window = window
         self.id = None  # assigned on creation
-
+        self.debug_tag = None  # assigned to objects related to debugging
         self.x = x
         self.y = y
         self.width = width
@@ -93,7 +89,7 @@ class Object:
         # options for customisation
         self.options = {'outline': 'black',
                         'fill': '',  # Empty string is transparent
-                        'smooth': 'false'}
+                        'smooth': False}
 
         self.rotation = 0  # recorded in degrees
         self.precision = 4  # number of points that make up the shape
@@ -151,23 +147,38 @@ class Object:
     def _draw(self): return Window.create_polygon(self.window, self.points, self.options)
 
     def draw(self):
-        """Draws the shape to the current window
-        """
-        self.id = self._draw()
+        """Draws the shape to the current window """
+        if self.id is None:
+            self.id = self._draw()
+            _master.update()
+
+    def undraw(self):
+        """Hides the object for drawing later """
+        self.window.delete(self.id)
+        if self.debug_tag: self.window.delete(self.debug_tag)
+        self.id = None; self.debug_tag = None  # Resets the object's id and tag as it no longer exists in the window
         _master.update()
 
     def draw_points(self):
+        if self.debug_tag is None:
+            self.debug_tag = f'{self.id}_debug'  # create a debug tag if it doesn't exist yet
+
         # debug function that shows points of object as red and border box as green
         tk.Canvas.create_rectangle(self.window, self.x, self.y,
-                                   self.x + self.width, self.y + self.height, outline='green', width='2')
+                                   self.x + self.width, self.y + self.height, outline='green', width='2',
+                                   tag=self.debug_tag)
         for x, y in self.points:
-            tk.Canvas.create_line(self.window, x, y, x+1, y+1, width='5', fill='red')
+            tk.Canvas.create_line(self.window, x, y, x+1, y+1, width='5', fill='red', tag=self.debug_tag)
 
     # function to move the object
     def move(self, x, y):
-        # TODO make this move the debug points as well, not just the object (could be done with tags)
-        self.x += x; self.y += y
-        self.window.move(self.id, x, y)
+        if self.id:  # TODO change this to an is_drawn function or something
+            self.x += x; self.y += y
+            if self.debug_tag:
+                self.window.move(self.debug_tag, x, y)
+            self.window.move(self.id, x, y)
+        else:
+            raise Exception('Object not currently drawn')  # TODO make some custom exceptions
 
 
 class Line(Object):
@@ -250,12 +261,25 @@ class CheckBox(Object):
 
     def _draw(self):
         frame = tk.Frame(self.window.master)
+        # TODO make the bg transparent
         self.button = tk.Checkbutton(frame, text=self.text, command=self.command, variable=self.var)
         self.button.pack()
         return self.window.create_window(self.x, self.y, window=frame)
 
-# TODO Implement Images
-# TODO Implement events (key handling, mouse handling, etc) (70% done)
+
+class Image(Object):
+    """Class to manage images
+
+        Only works with PNG, GIF, and PGM/PPM formats currently
+    """
+    def __init__(self, window, x, y, filename):
+        self.image = tk.PhotoImage(file=filename)
+        Object.__init__(self, window, x, y, 0, 0)
+
+    def _draw(self): return self.window.create_image(self.x, self.y, image=self.image)
+
+
+# TODO Implement events (key handling, mouse handling, etc) (95% done)
 # TODO Implement buttons and entries (embedded widgets)
 # TODO Implement Menubars (File, Edit, etc)
 
@@ -264,16 +288,22 @@ class CheckBox(Object):
 if __name__ == '__main__':
     window = Window()
     # window.set_bg('red')
+    myimage1 = Image(window, 300, 300, 'testpng.png')
+    myimage1.draw()
+    myimage1.undraw()
+    myimage1.draw()
     myline = Line(window, 250, 250, 100, 0)
     myline.draw()
     mycircle = Circle(window, 250, 250, 200)
     mycircle.draw()
     #mycircle.draw_points()
-    myrect = Rectangle(window, 0, 0, 200, 200)
-    #myrect.draw()
+    myrect = Rectangle(window, 250, 2, 100, 100)
+    myrect.draw()
     myoval = Oval(window, 0, 50, 200, 100)
     myoval.draw()
     myoval.draw_points()
+    myoval.undraw()
+    myoval.draw()
     mytext = Text(window, 50, 50, 'YEET')
     mytext.draw()
     myentry = Entry(window, 100, 100, 20)
@@ -281,8 +311,9 @@ if __name__ == '__main__':
     mycheckbox = CheckBox(window, 200, 200, 'Take my beans', command=None)
     mycheckbox.draw()
 
+
     while True:
-        myoval.move(1, 1)
+        #myoval.move(1, 1)
         mycircle.move(1, 1)
         window.update_idletasks()
         window.update()
