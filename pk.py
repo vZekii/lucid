@@ -239,6 +239,21 @@ class Entry(Object):
         self.entry.pack()
         return self.window.create_window(self.x, self.y, window=frame)
 
+
+class CheckBox(Object):
+    """Creates a checkbutton, which can have an on/off state, and a label"""
+    def __init__(self, window, x, y, text, command=None):
+        self.text = text
+        self.var = tk.BooleanVar()  # var used to store checkbox state (on/off)
+        self.command = command
+        Object.__init__(self, window, x, y, 0, 0)
+
+    def _draw(self):
+        frame = tk.Frame(self.window.master)
+        self.button = tk.Checkbutton(frame, text=self.text, command=self.command, variable=self.var)
+        self.button.pack()
+        return self.window.create_window(self.x, self.y, window=frame)
+
 # TODO Implement Images
 # TODO Implement events (key handling, mouse handling, etc) (70% done)
 # TODO Implement buttons and entries (embedded widgets)
@@ -263,6 +278,8 @@ if __name__ == '__main__':
     mytext.draw()
     myentry = Entry(window, 100, 100, 20)
     myentry.draw()
+    mycheckbox = CheckBox(window, 200, 200, 'Take my beans', command=None)
+    mycheckbox.draw()
 
     while True:
         myoval.move(1, 1)
