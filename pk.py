@@ -11,9 +11,10 @@ _master.withdraw()  # Hide it for background control
 class Window(tk.Canvas):
     """Class to manage window related actions """
 
-    def __init__(self, width=500, height=500):
+    def __init__(self, title='pk Window', width=500, height=500):
         self.master = tk.Toplevel(_master)
         self.master.bind('<Destroy>', self.on_close)  # hopefully fix closing
+        self.master.title(title)
         self.master.resizable(0, 0)
         tk.Canvas.__init__(self, self.master, width=width, height=height)
 
@@ -23,8 +24,6 @@ class Window(tk.Canvas):
 
         # management of the "X" button (closing)
         self.master.protocol('WM_DELETE_WINDOW', self.on_close)
-
-        # TODO Implement ability to change window name
 
     def autoflush(func):
         # a decorator that refreshes the window once the decorated function is run - if autoflush is true
@@ -182,17 +181,12 @@ class Object:
 
 
 class Line(Object):
-    """Creates a straight line that starts from (x,y) and ends at width and height
+    """Creates a straight line that starts from (x1, y1) and ends at (x2, y2) """
 
-    (thinking about this, what kind of line has width and height....)
-    """
-
-    def __init__(self, window, x, y, width, height):
-        Object.__init__(self, window, x, y, width, height)
+    def __init__(self, window, x1, y1, x2, y2):
+        Object.__init__(self, window, x1, y1, x2-x1, y2-y1)  # convert to xywh
 
     def _draw(self):
-        # tk uses x1 y1 x2 y2 notation, which is pretty gross
-        # TODO probably use x1 y1 x2 y2 because it makes more sense (apparently)....
         return Window.create_line(self.window, self.x, self.y, self.x + self.width, self.y + self.height)
 
 
@@ -286,17 +280,17 @@ class Image(Object):
 
 # This is for testing
 if __name__ == '__main__':
-    window = Window()
+    window = Window('Test window')
     # window.set_bg('red')
     myimage1 = Image(window, 300, 300, 'testpng.png')
     myimage1.draw()
     myimage1.undraw()
     myimage1.draw()
-    myline = Line(window, 250, 250, 100, 0)
+    myline = Line(window, 400, 100, 450, 170)
     myline.draw()
     mycircle = Circle(window, 250, 250, 200)
     mycircle.draw()
-    #mycircle.draw_points()
+    mycircle.draw_points()
     myrect = Rectangle(window, 250, 2, 100, 100)
     myrect.draw()
     myoval = Oval(window, 0, 50, 200, 100)
