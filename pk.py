@@ -55,7 +55,7 @@ class Window(tk.Canvas):
         :type colour: string
         """
         self.config(bg=colour)
-        # TODO implement rgb colours / class
+        # TODO implement rgb colours / class (this is done)
 
 
 class Object:
@@ -124,7 +124,7 @@ class Object:
 
         point_list = []
 
-        # create the oval as a list of points
+        # create the object as a list of points
         for i in range(self.precision):
             # Calculate the angle for this step
             # 360 degrees == 2 pi radians
@@ -147,8 +147,8 @@ class Object:
 
         self.convert_points()
 
-    # a stub for drawing - different for different shapes
-    def _draw(self): return 0  # overridden
+    # basic polygon drawing - overridden in non-poly objects
+    def _draw(self): return Window.create_polygon(self.window, self.points, self.options)
 
     def draw(self):
         """Draws the shape to the current window
@@ -162,6 +162,12 @@ class Object:
                                    self.x + self.width, self.y + self.height, outline='green', width='2')
         for x, y in self.points:
             tk.Canvas.create_line(self.window, x, y, x+1, y+1, width='5', fill='red')
+
+    # function to move the object
+    def move(self, x, y):
+        # TODO make this move the debug points as well, not just the object (could be done with tags)
+        self.x += x; self.y += y
+        self.window.move(self.id, x, y)
 
 
 class Line(Object):
@@ -185,8 +191,6 @@ class Rectangle(Object):
     def __init__(self, window, x, y, width, height):
         Object.__init__(self, window, x, y, width, height)
 
-    def _draw(self): return Window.create_polygon(self.window, self.points, self.options)
-
 
 class Circle(Object):
     """Creates a circle using (x,y) as the center point, that spreads radius outwards"""
@@ -200,8 +204,6 @@ class Circle(Object):
         self.rotate(0)
         # TODO make this more efficient
 
-    def _draw(self): return Window.create_polygon(self.window, self.points, self.options)
-
 
 class Oval(Object):
     """Creates an oval based on a defined box, which starts at (x,y) and is width long and height high"""
@@ -211,10 +213,6 @@ class Oval(Object):
         self.options['smooth'] = True
         self.precision = 20
         self.rotate(0)
-
-    def _draw(self):
-        # TODO Fix the redundancy of the polygon draw statements, without affecting text and entry
-        return Window.create_polygon(self.window, self.points, self.options)
 
 
 class Text(Object):
@@ -242,7 +240,7 @@ class Entry(Object):
         return self.window.create_window(self.x, self.y, window=frame)
 
 # TODO Implement Images
-# TODO Implement events (key handling, mouse handling, etc)
+# TODO Implement events (key handling, mouse handling, etc) (70% done)
 # TODO Implement buttons and entries (embedded widgets)
 # TODO Implement Menubars (File, Edit, etc)
 
@@ -267,8 +265,8 @@ if __name__ == '__main__':
     myentry.draw()
 
     while True:
-        # window.move(myoval.id, 1, 1)
-        # window.move(mycircle.id, 1, 1)
+        myoval.move(1, 1)
+        mycircle.move(1, 1)
         window.update_idletasks()
         window.update()
         window.after(15)
