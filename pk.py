@@ -16,7 +16,7 @@ class Window(tk.Canvas):
         self.master.bind('<Destroy>', self.on_close)  # hopefully fix closing
         self.master.title(title)
         self.master.resizable(0, 0)
-        tk.Canvas.__init__(self, self.master, width=width, height=height)
+        tk.Canvas.__init__(self, self.master, width=width, height=height, highlightthickness=0)
 
         # display the canvas on the window
         self.pack()
@@ -229,13 +229,30 @@ class Text(Object):
         return self.window.create_text(self.x, self.y, text=self.text)
 
 
+class Button(Object):
+    """Creates a button, centered on (x,y)"""
+    def __init__(self, window, x, y, text, width=0, height=0, command=None):
+        self.text = tk.StringVar(_master, text)
+        self.command = command
+        Object.__init__(self, window, x, y, width, height)
+
+    def _draw(self):
+        if self.width and self.height:  # If custom width and height are defined
+            frame = tk.Frame(self.window.master, width=self.width, height=self.height)
+            frame.pack_propagate(0)
+        else:
+            frame = tk.Frame(self.window.master)
+
+        self.button = tk.Button(frame, textvariable=self.text, command=self.command)
+        self.button.pack(fill=tk.BOTH, expand=1)
+        return self.window.create_window(self.x, self.y, window=frame)
+
+
 class Entry(Object):
     """Creates an entry box, which text and numbers can be entered into"""
     def __init__(self, window, x, y, width, placeholder=''):
-        self.text = tk.StringVar(_master)
-        self.text.set(placeholder)
+        self.text = tk.StringVar(_master, placeholder)
         Object.__init__(self, window, x, y, width, height=0)
-        self.entry = None
 
     def _draw(self):
         frame = tk.Frame(self.window.master)
@@ -309,7 +326,7 @@ if __name__ == '__main__':
     mycircle = Circle(window, 250, 250, 200)
     mycircle.draw()
     mycircle.draw_points()
-    myrect = Rectangle(window, 250, 2, 100, 100)
+    myrect = Rectangle(window, 250, 0, 100, 100)
     myrect.draw()
     myoval = Oval(window, 0, 50, 200, 100)
     myoval.draw()
@@ -318,11 +335,12 @@ if __name__ == '__main__':
     myoval.draw()
     mytext = Text(window, 50, 50, 'YEET')
     mytext.draw()
-    myentry = Entry(window, 100, 100, 20)
+    mybutton = Button(window, 100, 150, 'hit me until the bruh moment')
+    mybutton.draw()
+    myentry = Entry(window, 100, 100, 20, placeholder='Epic')
     myentry.draw()
-    mycheckbox = CheckBox(window, 200, 200, 'Take my beans', command=None)
+    mycheckbox = CheckBox(window, 200, 200, 'Take my beans')
     mycheckbox.draw()
-
 
     while True:
         #myoval.move(1, 1)
