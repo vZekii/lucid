@@ -405,7 +405,6 @@ def rgb(red, green, blue):
     return f'#{red:02x}{green:02x}{blue:02x}'
 
 
-# TODO Implement events (key handling, mouse handling, etc) (95% done)
 # TODO Implement listboxes, radiobuttons (maybe)
 # TODO Implement Menubars (File, Edit, etc)
 
