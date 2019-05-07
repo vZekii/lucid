@@ -12,7 +12,7 @@ _master.withdraw()  # Hide it for background control
 class Window(tk.Canvas):
     """Class to manage window related actions """
 
-    def __init__(self, title='pk Window', width=500, height=500):
+    def __init__(self, title='pk Window', width=500, height=500, autodraw=True):
         self.master = tk.Toplevel(_master)
         self.master.title(title)
         self.master.resizable(0, 0)
@@ -21,6 +21,7 @@ class Window(tk.Canvas):
         # display the canvas on the window
         self.pack()
         self.autoflush = True
+        self.autodraw = True
 
         # management of the "X" button (closing)
         self.master.protocol('WM_DELETE_WINDOW', self._on_close)
@@ -95,6 +96,8 @@ class EventHandler:
             window.bind_all(f'<B{i}-Motion>', self.new_event)  # Mouse motion with button held down
             window.bind_all(f'<ButtonRelease-{i}>', self.new_event)  # Mouse release
 
+            # TODO add scroll wheel functionality
+
             # window.bind_all(f'<Double-Button-{i}>', self.new_event)
             # window.bind_all(f'<Triple-Button-{i}>', self.new_event)
 
@@ -162,9 +165,11 @@ class Object:
         self.window = window
         self.id = None  # assigned on creation
         self.debug_tag = None  # assigned to objects related to debugging
+
+        # TODO merge these with the options dict to create a "properties" dict for the whole object
         self.x = x
         self.y = y
-        self.width = width
+        self._width = width
         self.height = height
 
         # Coordinates for all points of the shape
@@ -178,11 +183,27 @@ class Object:
         self.rotation = 0  # recorded in degrees
         self.precision = 4  # number of points that make up the shape
 
+        if window.autodraw: self.draw()
+
+    # This is how the option setting would work
+    def _optionset(self, opt, val):
+        if self.id:
+            self.window.itemconfigure(self.id, {opt: val})  # width seems to overlap with line width
+
+    @property
+    def width(self):
+        return self._width  # this would be changed to something like self._properties['width']
+
+    @width.setter
+    def width(self, value):
+        self._width = value
+        self._optionset('width', value)
+
     def generate_points(self):
         # Converts xywh to (x1 y1) (x2 y2) ... (tk polygon format)
         return [(self.x, self.y),
-                (self.x + self.width, self.y),
-                (self.x + self.width, self.y + self.height),
+                (self.x + self._width, self.y),
+                (self.x + self._width, self.y + self.height),
                 (self.x, self.y + self.height)]
 
     def convert_points(self):
@@ -190,43 +211,39 @@ class Object:
         self.points = [(self.points[i], self.points[i + 1]) for i in range(0, len(self.points), 2)]
 
     def rotate(self, angle):
+        """Rotates the object (from its center) by the amount of degrees (angle) specified"""
         self.rotation += angle
+
+        # make it so the current object rotation is within 0-360 degrees
         if self.rotation >= 360:
-            self.rotation -= 360
+            self.rotation %= 360
         elif self.rotation < 0:
             self.rotation += 360
-        rotation = self.rotation * math.pi / 180.0
 
-        # major and minor axes
-        a = self.width / 2
-        b = self.height / 2
+        # Convert the angle into radians? for math stuff
+        theta = angle * math.pi / 180.0  # fixed bug where self.rotation was being used instead of angle
 
-        # center
-        xc = self.x + a
-        yc = self.y + b
+        # get the center point of the object - may replace this with a function
+        cx = self.x + (self._width / 2)
+        cy = self.y + (self.height / 2)
 
-        point_list = []
+        new_points = []
 
-        # create the object as a list of points
-        for i in range(self.precision):
-            # Calculate the angle for this step
-            # 360 degrees == 2 pi radians
-            theta = (math.pi * 2) * (float(i) / self.precision)
+        for (px, py) in self.points:
+            # move object point back to origin
+            px -= cx; py -= cy
 
-            x1 = a * math.cos(theta)
-            y1 = b * math.sin(theta)
+            # rotate point
+            x = (px * math.cos(theta)) - (py * math.sin(theta))
+            y = (py * math.cos(theta)) + (px * math.sin(theta))
 
-            # rotate x, y
-            x = (x1 * math.cos(rotation)) + (y1 * math.sin(rotation))
-            y = (y1 * math.cos(rotation)) - (x1 * math.sin(rotation))
+            new_points.append(x + cx)
+            new_points.append(y + cy)
 
-            point_list.append(round(x + xc))
-            point_list.append(round(y + yc))
-
-        self.points = point_list
+        self.points = new_points
 
         if self.id is not None:
-            self.window.coords(self.id, *self.points)
+            self.window.coords(self.id, self.points)
 
         self.convert_points()
 
@@ -254,7 +271,7 @@ class Object:
             self.debug_tag = f'{self.id}_debug'  # create a debug tag if it doesn't exist yet
 
         # debug function that shows points of object as red and border box as green
-        Window.create_rectangle(self.window, self.x, self.y, self.x + self.width, self.y + self.height, outline='green',
+        Window.create_rectangle(self.window, self.x, self.y, self.x + self._width, self.y + self.height, outline='green',
                                 width='2', tag=self.debug_tag)
         for x, y in self.points:
             Window.create_line(self.window, x, y, x + 1, y + 1, width='5', fill='red', tag=self.debug_tag)
@@ -278,7 +295,7 @@ class Line(Object):
         Object.__init__(self, window, x1, y1, x2 - x1, y2 - y1)  # convert to xywh
 
     def _draw(self):
-        return Window.create_line(self.window, self.x, self.y, self.x + self.width, self.y + self.height)
+        return Window.create_line(self.window, self.x, self.y, self.x + self._width, self.y + self.height)
 
 
 class Rectangle(Object):
@@ -321,6 +338,11 @@ class Text(Object):
 
     def _draw(self):
         return self.window.create_text(self.x, self.y, text=self.text)
+
+    def change_text(self, text=''):
+        if not text:
+            self.text = text  # fixed bug where "text = self.text" was wrong way around
+        self.window.itemconfigure(self.id, text=text)
 
 
 class Button(Object):
@@ -410,37 +432,60 @@ def rgb(red, green, blue):
 
 
 # This is for testing
-if __name__ == '__main__':
-    win = Window('Test window')
-    win.set_bg(rgb(255, 20, 147))
-    myimage1 = Image(win, 300, 300, 'testpng.png')
-    myimage1.draw()
-    myimage1.undraw()
-    myimage1.draw()
-    myline = Line(win, 400, 100, 450, 170)
-    myline.draw()
-    mycircle = Circle(win, 250, 250, 200)
-    mycircle.draw()
-    mycircle.draw_points()
-    myrect = Rectangle(win, 250, 0, 100, 100)
-    myrect.draw()
-    myoval = Oval(win, 0, 50, 200, 100)
-    myoval.draw()
-    myoval.draw_points()
-    myoval.undraw()
-    myoval.draw()
-    mytext = Text(win, 50, 50, 'YEET')
-    mytext.draw()
-    mybutton = Button(win, 100, 150, 'hit me until the bruh moment')
-    mybutton.draw()
-    myentry = Entry(win, 100, 100, 20, placeholder='Epic')
-    myentry.draw()
-    mycheckbox = CheckBox(win, 200, 200, 'Take my beans')
-    mycheckbox.draw()
+# if __name__ == '__main__':
+#     win = Window('Test window')
+#     win.set_bg(rgb(255, 20, 147))
+#     #myimage1 = Image(win, 300, 300, 'testpng.png')
+#     #myimage1.draw()
+#     #myimage1.undraw()
+#     #myimage1.draw()
+#     myline = Line(win, 400, 100, 450, 170)
+#     myline.draw()
+#     mycircle = Circle(win, 250, 250, 200)
+#     mycircle.draw()
+#     mycircle.draw_points()
+#     myrect = Rectangle(win, 250, 100, 100, 100)
+#     myrect.draw()
+#     myoval = Oval(win, 0, 50, 200, 100)
+#     myoval.rotate(90)
+#     myoval.draw()
+#     myoval.draw_points()
+#     myoval.undraw()
+#     myoval.draw()
+#     mytext = Text(win, 50, 50, 'YEET')
+#     mytext.draw()
+#     mybutton = Button(win, 100, 150, 'hit me until the bruh moment')
+#     mybutton.draw()
+#     myentry = Entry(win, 100, 100, 20, placeholder='Epic')
+#     myentry.draw()
+#     mycheckbox = CheckBox(win, 200, 200, 'Take my beans')
+#     mycheckbox.draw()
+#
+#     while True:
+#         # myoval.move(1, 1)
+#         mycircle.move(1, 1)
+#         # These are only being used to slow the program down
+#         win.update_idletasks()
+#         win.update()
+#         win.after(15)
 
-    while True:
-        # myoval.move(1, 1)
-        mycircle.move(1, 1)
-        win.update_idletasks()
-        win.update()
-        win.after(15)
+if __name__ == '__main__':
+    win = Window()
+    global num
+    num = 0
+    rotation_display = Text(win, 250, 100, num)
+    # rotation_display.draw()
+    # drawing the object is no longer required with autodraw as true
+
+    rot_rect = Rectangle(win, 200, 200, 100, 100)
+    # rot_rect.draw()
+
+    def inc(): global num; num += 1; rotation_display.change_text(num); rot_rect.width += 1
+    def dec(): global num; num -= 1; rotation_display.change_text(num); rot_rect.rotate(190); print(rot_rect.rotation)
+
+    up_button = Button(win, 200, 150, 'rot up', command=inc)
+    # up_button.draw()
+    down_button = Button(win, 300, 150, 'rot down', command=dec)
+    # down_button.draw()
+
+    win.mainloop()
