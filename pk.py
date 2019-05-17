@@ -2,6 +2,7 @@
 
 import math
 import string
+import sys
 import tkinter as tk  # May have to change this later to detect if tkinter is available
 
 # Initialize a "controlling window"
@@ -20,7 +21,6 @@ class Window(tk.Canvas):
 
         # display the canvas on the window
         self.pack()
-        self.autoflush = True
         if autodraw:
             self.autodraw = True
 
@@ -31,30 +31,16 @@ class Window(tk.Canvas):
         # start the event handler
         self.EventHandler = EventHandler(self)
 
-    def autoflush(func):
-        # a decorator that refreshes the window once the decorated function is run - if autoflush is true
-        def wrapper_decorator(*args, **kwargs):
-            value = func(*args, **kwargs)
-            if args[0].autoflush:
-                args[0].update()
-            return value
-
-        return wrapper_decorator
-
-        # TODO either fix or change this
-
     def on_close(self):
         """Stub to manage the closing of the window - should be modifiable by the user"""
         pass
 
-    @autoflush
-    def _on_close(self, *args):
+    def _on_close(self):
         """runs the user-defined close function, then closes then window"""
         self.on_close()
         self.master.destroy()
-        # TODO check if window is destroyed and assert an error if so
+        sys.exit()   # Actually closes the window now
 
-    @autoflush
     def set_bg(self, colour):  # TODO change this to a property
         """Changes the background colour to the colour specified
 
@@ -167,7 +153,6 @@ class Object:
         self.id = None  # assigned on creation
         self.debug_tag = None  # assigned to objects related to debugging
 
-        # TODO maybe add cx and cy (center coords)
         self.propeties = {
             'x': x,
             'y': y,
@@ -516,65 +501,3 @@ def rgb(red, green, blue):
 
 # TODO Implement listboxes, radiobuttons (maybe)
 # TODO Implement Menubars (File, Edit, etc)
-
-
-#This is for testing
-# if __name__ == '__main__':
-#     win = Window('Test window')
-#     win.set_bg(rgb(255, 20, 147))
-#     myimage1 = Image(win, 300, 300, 'experimental/testpng.png')
-#     myimage1.draw()
-#     myimage1.undraw()
-#     myimage1.draw()
-#     myline = Line(win, 400, 100, 450, 170)
-#     myline.draw()
-#     mycircle = Circle(win, 250, 250, 200)
-#     mycircle.draw()
-#     mycircle.draw_points()
-#     myrect = Rectangle(win, 250, 100, 100, 100)
-#     myrect.draw()
-#     myoval = Oval(win, 0, 50, 200, 100)
-#     myoval.rotate(90)
-#     myoval.draw()
-#     myoval.draw_points()
-#     myoval.undraw()
-#     myoval.draw()
-#     mytext = Text(win, 50, 50, 'YEET')
-#     mytext.draw()
-#     mybutton = Button(win, 100, 150, 'hit me until the bruh moment')
-#     mybutton.draw()
-#     myentry = Entry(win, 100, 100, 20, placeholder='Epic')
-#     myentry.draw()
-#     mycheckbox = CheckBox(win, 200, 200, 'Take my beans')
-#     mycheckbox.draw()
-#
-#     while True:
-#         # myoval.move(1, 1)
-#         mycircle.move(1, 1)
-#         # These are only being used to slow the program down
-#         win.update_idletasks()
-#         win.update()
-#         win.after(15)
-
-if __name__ == '__main__':
-    win = Window()
-
-    rotation_display = Text(win, 250, 100, "0")
-    # rotation_display.draw()
-    # drawing the object is no longer required with autodraw as true
-
-    rot_rect = Rectangle(win, 200, 200, 100, 100)
-    # rot_rect.draw()
-
-    def inc(e=None): rot_rect.width += 1; rotation_display.change_text(str(rot_rect.rotation))
-    def dec(e=None): rot_rect.rotate(1); rotation_display.change_text(str(rot_rect.rotation))
-
-
-    up_button = Button(win, 200, 150, 'rot up', command=inc)
-    # up_button.draw()
-    down_button = Button(win, 300, 150, 'rot down', command=dec)
-    # down_button.draw()
-
-    win.bind_key('a', dec)
-
-    win.mainloop()
