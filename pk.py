@@ -21,7 +21,8 @@ class Window(tk.Canvas):
         # display the canvas on the window
         self.pack()
         self.autoflush = True
-        self.autodraw = True
+        if autodraw:
+            self.autodraw = True
 
         # management of the "X" button (closing)
         self.master.protocol('WM_DELETE_WINDOW', self._on_close)
@@ -54,7 +55,7 @@ class Window(tk.Canvas):
         # TODO check if window is destroyed and assert an error if so
 
     @autoflush
-    def set_bg(self, colour):
+    def set_bg(self, colour):  # TODO change this to a property
         """Changes the background colour to the colour specified
 
         :param colour: The colour to be changed to - accepts all tkinter colours, hex, and conversions from rgb
@@ -149,7 +150,7 @@ class Object:
     # TODO fix weird glitch where some parts of the shape don't draw if updated too quickly (about 40+ fps)
     # ^^^ I'm assuming its to do with the refresh rate of the monitor
     #  TODO implement sizing (maybe)
-    def __init__(self, window, x, y, width, height):
+    def __init__(self, window, x, y, width, height, options=None):
         """
         :param window: window to bind the object to
         :type window: pk.Window
@@ -166,53 +167,125 @@ class Object:
         self.id = None  # assigned on creation
         self.debug_tag = None  # assigned to objects related to debugging
 
-        # TODO merge these with the options dict to create a "properties" dict for the whole object
-        self.x = x
-        self.y = y
-        self._width = width
-        self.height = height
+        # TODO maybe add cx and cy (center coords)
+        self.propeties = {
+            'x': x,
+            'y': y,
+            'cx': x + (width / 2),
+            'cy': y + (height / 2),
+            'width': width,
+            'height': height,
+        }
+
+        self.options = {
+                'fill': '',  # Empty string is transparent
+                'outline': 'black',
+                'width': 1,  # this is outline thickness
+                'smooth': False,
+        }
+
+        if options: self.options.update(options)
 
         # Coordinates for all points of the shape
         self.points = self.generate_points()
-
-        # options for customisation
-        self.options = {'outline': 'black',
-                        'fill': '',  # Empty string is transparent
-                        'smooth': False}
 
         self.rotation = 0  # recorded in degrees
         self.precision = 4  # number of points that make up the shape
 
         if window.autodraw: self.draw()
 
+    def _updatecenter(self):
+        self.propeties['cx'] = self.x + (self.width / 2)
+        self.propeties['cy'] = self.y + (self.height / 2)
+
     # This is how the option setting would work
     def _optionset(self, opt, val):
+        if self.id:  # only change it immediately if the object is drawn
+            self.window.itemconfigure(self.id, {opt: val})
+
+    def _propertyset(self):
         if self.id:
-            self.window.itemconfigure(self.id, {opt: val})  # width seems to overlap with line width
+            self.points = self.generate_points()
+            self.rotate_to(self.rotation)  # allows the shape to keep rotation - this causes the center point to change however, causing issues
+            if not self.rotation:
+                self._updatecenter()  # only lets the center point change when rotation is 0
+            self.window.coords(self.id, self.convert_points_line())
+
+    @property
+    def fill(self):
+        return self.options['fill']
+
+    @fill.setter
+    def fill(self, value):
+        self._optionset('fill', value)
+        self.options['fill'] = value
+
+    @property
+    def x(self):
+        return self.propeties['x']
+
+    @x.setter
+    def x(self, value):
+        self.propeties['x'] = value
+        self._propertyset()
+
+    @property
+    def y(self):
+        return self.propeties['y']
+
+    @y.setter
+    def y(self, value):
+        self.propeties['y'] = value
+        self._propertyset()
+
+    @property
+    def cx(self):
+        return self.propeties['cx']
+
+    @property
+    def cy(self):
+        return self.propeties['cy']
 
     @property
     def width(self):
-        return self._width  # this would be changed to something like self._properties['width']
+        return self.propeties['width']
 
     @width.setter
     def width(self, value):
-        self._width = value
-        self._optionset('width', value)
+        self.propeties['width'] = value
+        self._propertyset()
+
+    @property
+    def height(self):
+        return self.propeties['height']
+
+    @height.setter
+    def height(self, value):
+        self.propeties['height'] = value
+        self._propertyset()
 
     def generate_points(self):
         # Converts xywh to (x1 y1) (x2 y2) ... (tk polygon format)
         return [(self.x, self.y),
-                (self.x + self._width, self.y),
-                (self.x + self._width, self.y + self.height),
+                (self.x + self.width, self.y),
+                (self.x + self.width, self.y + self.height),
                 (self.x, self.y + self.height)]
 
     def convert_points(self):
         # converts points from x1 y1 x2 y2 to (x1, y1) (x2, y2) ...
         self.points = [(self.points[i], self.points[i + 1]) for i in range(0, len(self.points), 2)]
 
-    def rotate(self, angle):
-        """Rotates the object (from its center) by the amount of degrees (angle) specified"""
-        self.rotation += angle
+    def convert_points_line(self):
+        """ converts points from (x1, y1) (x2, y2) to x1 y1 x2 y2 """
+        out = []
+        for point in self.points:
+            out.append(point[0]); out.append(point[1])
+        return out
+
+    def _rotate(self):
+        """internal command to control rotations - shared by rotate and rotate_to
+
+            made with help from: https://stackoverflow.com/questions/2259476/rotating-a-point-about-another-point-2d"""
 
         # make it so the current object rotation is within 0-360 degrees
         if self.rotation >= 360:
@@ -221,24 +294,26 @@ class Object:
             self.rotation += 360
 
         # Convert the angle into radians? for math stuff
-        theta = angle * math.pi / 180.0  # fixed bug where self.rotation was being used instead of angle
+        theta = self.rotation * math.pi / 180.0  # fixed bug where self.rotation was being used instead of angle
 
         # get the center point of the object - may replace this with a function
-        cx = self.x + (self._width / 2)
+        cx = self.x + (self.width / 2)
         cy = self.y + (self.height / 2)
 
         new_points = []
+        self.points = self.generate_points()  # Resets the object back to default, to allow more precise rotates
 
         for (px, py) in self.points:
             # move object point back to origin
-            px -= cx; py -= cy
+            px -= self.cx
+            py -= self.cy
 
             # rotate point
             x = (px * math.cos(theta)) - (py * math.sin(theta))
             y = (py * math.cos(theta)) + (px * math.sin(theta))
 
-            new_points.append(x + cx)
-            new_points.append(y + cy)
+            new_points.append(x + self.cx)
+            new_points.append(y + self.cy)
 
         self.points = new_points
 
@@ -246,6 +321,18 @@ class Object:
             self.window.coords(self.id, self.points)
 
         self.convert_points()
+
+    def rotate_to(self, angle):
+        """Rotates the object to the defined angle"""
+        self.rotation = angle
+
+        self._rotate()
+
+    def rotate(self, angle):
+        """Rotates the object (from its center) by the amount of degrees (angle) specified """
+        self.rotation += angle
+
+        self._rotate()
 
     # basic polygon drawing - overridden in non-poly objects
     def _draw(self):
@@ -271,7 +358,7 @@ class Object:
             self.debug_tag = f'{self.id}_debug'  # create a debug tag if it doesn't exist yet
 
         # debug function that shows points of object as red and border box as green
-        Window.create_rectangle(self.window, self.x, self.y, self.x + self._width, self.y + self.height, outline='green',
+        Window.create_rectangle(self.window, self.x, self.y, self.x + self.width, self.y + self.height, outline='green',
                                 width='2', tag=self.debug_tag)
         for x, y in self.points:
             Window.create_line(self.window, x, y, x + 1, y + 1, width='5', fill='red', tag=self.debug_tag)
@@ -295,7 +382,7 @@ class Line(Object):
         Object.__init__(self, window, x1, y1, x2 - x1, y2 - y1)  # convert to xywh
 
     def _draw(self):
-        return Window.create_line(self.window, self.x, self.y, self.x + self._width, self.y + self.height)
+        return Window.create_line(self.window, self.x, self.y, self.x + self.width, self.y + self.height)
 
 
 class Rectangle(Object):
@@ -431,14 +518,14 @@ def rgb(red, green, blue):
 # TODO Implement Menubars (File, Edit, etc)
 
 
-# This is for testing
+#This is for testing
 # if __name__ == '__main__':
 #     win = Window('Test window')
 #     win.set_bg(rgb(255, 20, 147))
-#     #myimage1 = Image(win, 300, 300, 'testpng.png')
-#     #myimage1.draw()
-#     #myimage1.undraw()
-#     #myimage1.draw()
+#     myimage1 = Image(win, 300, 300, 'experimental/testpng.png')
+#     myimage1.draw()
+#     myimage1.undraw()
+#     myimage1.draw()
 #     myline = Line(win, 400, 100, 450, 170)
 #     myline.draw()
 #     mycircle = Circle(win, 250, 250, 200)
@@ -471,21 +558,23 @@ def rgb(red, green, blue):
 
 if __name__ == '__main__':
     win = Window()
-    global num
-    num = 0
-    rotation_display = Text(win, 250, 100, num)
+
+    rotation_display = Text(win, 250, 100, "0")
     # rotation_display.draw()
     # drawing the object is no longer required with autodraw as true
 
     rot_rect = Rectangle(win, 200, 200, 100, 100)
     # rot_rect.draw()
 
-    def inc(): global num; num += 1; rotation_display.change_text(num); rot_rect.width += 1
-    def dec(): global num; num -= 1; rotation_display.change_text(num); rot_rect.rotate(190); print(rot_rect.rotation)
+    def inc(e=None): rot_rect.width += 1; rotation_display.change_text(str(rot_rect.rotation))
+    def dec(e=None): rot_rect.rotate(1); rotation_display.change_text(str(rot_rect.rotation))
+
 
     up_button = Button(win, 200, 150, 'rot up', command=inc)
     # up_button.draw()
     down_button = Button(win, 300, 150, 'rot down', command=dec)
     # down_button.draw()
+
+    win.bind_key('a', dec)
 
     win.mainloop()
