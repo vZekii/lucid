@@ -9,7 +9,7 @@ import tkinter as tk  # May have to change this later to detect if tkinter is av
 MenuItem = namedtuple('MenuItem', ['label', 'command'])
 
 
-class PkError(Exception):
+class LucidError(Exception):
     """Base class for all exceptions"""
     pass
 
@@ -22,7 +22,7 @@ _master.withdraw()  # Hide it for background control
 class Window(tk.Canvas):
     """Class to manage window related actions """
 
-    def __init__(self, title='pk Window', width=500, height=500, autodraw=True):
+    def __init__(self, title='Lucid Window', width=500, height=500, autodraw=True):
         self.master = tk.Toplevel(_master)
         self.master.title(title)
         self.master.resizable(0, 0)
@@ -30,6 +30,7 @@ class Window(tk.Canvas):
 
         # display the canvas on the window
         self.pack()
+        self.autodraw = False
         if autodraw:
             self.autodraw = True
 
@@ -40,8 +41,10 @@ class Window(tk.Canvas):
         # start the event handler
         self.EventHandler = EventHandler(self)
 
-        # set up default menu
         self.menu = Menu(self)
+
+    def show_menu(self):
+        self.menu.drawn = True
         self.master.config(menu=self.menu)
 
     def on_close(self):
@@ -62,6 +65,8 @@ class Window(tk.Canvas):
     def bg(self, colour):
         """Changes the background colour to the colour specified
 
+        supported named colours: http://www.science.smith.edu/dftwiki/index.php/Color_Charts_for_TKinter
+
         :param colour: The colour to be changed to - accepts all tkinter colours, hex, and conversions from rgb
         :type colour: string
         """
@@ -72,7 +77,7 @@ class Window(tk.Canvas):
             self.EventHandler.bindings[key] = func
             # TODO somehow get arguments without lambda
         else:
-            raise PkError(f'Key not found in bindings dir: {key}')
+            raise LucidError('Key not found in bindings dir: {}'.format(key))
 
     def get_mouse(self):
         """Returns the current cursor position based on the window
@@ -87,7 +92,7 @@ class Window(tk.Canvas):
 
 
 class Menu(tk.Menu):
-    current_menu = ''
+    current_menu = None
 
     def __init__(self, master):
         tk.Menu.__init__(self, master)
@@ -96,16 +101,20 @@ class Menu(tk.Menu):
         self.add_cascade(label='Quit', command=master.quit)
 
         self.current_menu = self
+        self.drawn = False
 
     def add_submenu(self, name, menulist):
-        submenu = self._create_submenu()
-        for item in menulist:
-            if isinstance(item, MenuItem):
-                submenu.add_command(label=item.label, command=item.command)
-            else:
-                submenu.add_separator()
-        self.submenus[name] = submenu
-        self.add_cascade(label=name, menu=submenu)
+        if self.drawn:
+            submenu = self._create_submenu()
+            for item in menulist:
+                if isinstance(item, MenuItem):
+                    submenu.add_command(label=item.label, command=item.command)
+                else:
+                    submenu.add_separator()
+            self.submenus[name] = submenu
+            self.add_cascade(label=name, menu=submenu)
+        else:
+            raise LucidError('Menu not initalised, please call setup_menu() on the window to use menus')
 
     def _create_submenu(self):
         return tk.Menu(self.current_menu, tearoff=0)
@@ -116,15 +125,15 @@ class EventHandler:
     bindings = {}  # Dictionary to store all bindings
 
     def __init__(self, window):
-        self.latest = False  # Stores the latest event
+        self.latest = None  # Stores the latest event
 
         self.initialize_bindings()
         window.bind_all('<Key>', self.new_event)
 
         for i in range(1, 4):
-            window.bind_all(f'<Button-{i}>', self.new_event)  # Mouse click
-            window.bind_all(f'<B{i}-Motion>', self.new_event)  # Mouse motion with button held down
-            window.bind_all(f'<ButtonRelease-{i}>', self.new_event)  # Mouse release
+            window.bind_all('<Button-{}>'.format(i), self.new_event)  # Mouse click
+            window.bind_all('<B{}-Motion>'.format(i), self.new_event)  # Mouse motion with button held down
+            window.bind_all('<ButtonRelease-{}>'.format(i), self.new_event)  # Mouse release
 
             # TODO add scroll wheel functionality
 
@@ -181,7 +190,7 @@ class Object:
     def __init__(self, window, x, y, width, height, options=None):
         """
         :param window: window to bind the object to
-        :type window: pk.Window
+        :type window: lucid.Window
         :param x: x coordinate of the object (from the top left corner)
         :type x: int/float
         :param y: y coordinate of the object (from the top left corner)
@@ -328,7 +337,7 @@ class Object:
         """ converts points from (x1, y1) (x2, y2) to x1 y1 x2 y2 """
         out = []
         for point in self.points:
-            out.append(point[0]);
+            out.append(point[0])
             out.append(point[1])
         return out
 
@@ -422,7 +431,7 @@ class Object:
 
     def draw_points(self):
         if self.debug_tag is None:
-            self.debug_tag = f'{self.id}_debug'  # create a debug tag if it doesn't exist yet
+            self.debug_tag = '{}_debug'.format(self.id)  # create a debug tag if it doesn't exist yet
 
         # debug function that shows points of object as red and border box as green
         Window.create_rectangle(self.window, self.x, self.y, self.x + self.width, self.y + self.height, outline='green',
@@ -446,7 +455,7 @@ class Object:
                 self.window.move(self.debug_tag, x, y)
             self.window.move(self.id, x, y)
         else:
-            raise PkError('Object not currently drawn')
+            raise LucidError('Object not currently drawn')
 
     def __repr__(self):
         return "Object {}".format(self.__class__)
@@ -458,7 +467,7 @@ class Object:
 
             return check
         else:
-            raise PkError(obj2.__class__, 'is not a pk.Object')
+            raise LucidError(obj2.__class__, 'is not a lucid.Object')
 
 
 class Line(Object):
@@ -601,9 +610,9 @@ def rgb(red, green, blue):
     color = (red, green, blue)
     for c in color:
         if not 0 <= c <= 255:  # checks that the values fall within the range 0-255
-            raise ValueError(f'Value {c} not within 0-255')
+            raise ValueError('Value {} not within 0-255'.format(c))
 
-    return f'#{red:02x}{green:02x}{blue:02x}'
+    return '#{:02x}{:02x}{:02x}'.format(red, green, blue)
 
 # TODO Implement listboxes, radiobuttons (maybe)
 # TODO Implement Menubars (File, Edit, etc)
