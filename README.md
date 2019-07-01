@@ -1,5 +1,5 @@
-# hsc-proj
-This is the main repository for my HSC major SDD project
+# lucid
+A graphics library for beginners in python to easily create graphics based programs. As it is built upon the pre-installed library tkinter, so only one file is needed to start.
 
 ### The goal
 To create a Tkinter based graphics library for python 3, that is easy for students to use.
