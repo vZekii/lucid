@@ -98,11 +98,7 @@ class Window(tk.Canvas):
 
     def bind_key(self, key, func):
         """binds the provided key to the provided function. The function must have an argument for an event"""
-        if key in self.EventHandler.bindings.keys():
-            self.EventHandler.bindings[key] = func
-            # TODO somehow get arguments without lambda
-        else:
-            raise LucidError('Key not found in bindings dir: {}'.format(key))
+        self.EventHandler.bind_key(key, func)
 
     def get_mouse(self):
         """Returns the current cursor position based on the window
@@ -152,68 +148,34 @@ class EventHandler:
     bindings = {}  # Dictionary to store all bindings
 
     def __init__(self, window):
-        self.latest = None  # Stores the latest event
+        self.window = window  # keep a reference for binding
+        chars = string.printable.split(' ')[0]
 
-        self.initialize_bindings()
-        window.bind_all('<Key>', self.new_event)
-        window.bind_all('<MouseWheel>', self.new_event)  # Mouse wheel
+        # Characters
+        for char in chars:
+            self.bindings[char] = '{}'.format(char)
 
-        for i in range(1, 4):
-            # bind each mouse button
-            window.bind_all('<Button-{}>'.format(i), self.new_event)  # Mouse click
-            window.bind_all('<B{}-Motion>'.format(i), self.new_event)  # Mouse motion with button held down
-            window.bind_all('<ButtonRelease-{}>'.format(i), self.new_event)  # Mouse release
+        # Clicks
+        self.bindings['leftclick'] = '<Button-1>'
+        self.bindings['middleclick'] = '<Button-2>'
+        self.bindings['rightclick'] = '<Button-3>'
+        self.bindings['mousewheel'] = '<MouseWheel>'
 
-            # TODO add scroll wheel functionality
+        # Arrow keys
+        for k in ['Up', 'Down', 'Left', 'Right']:
+            self.bindings[k.lower()] = '<{}>'.format(k)
 
-            # window.bind_all(f'<Double-Button-{i}>', self.new_event)
-            # window.bind_all(f'<Triple-Button-{i}>', self.new_event)
+        # Extra keys
+        self.bindings['space'] = '<space>'
+        self.bindings['lshift'] = '<Shift-L>'
+        self.bindings['rshift'] = '<Shift-R>'
+        self.bindings['backspace'] = '<BackSpace>'
 
-    def initialize_bindings(self):
-        """function to setup bindings to most keys"""
-        for char in string.ascii_letters:  # includes upper and lower
-            self.bindings[char] = Event(char)
-        for sym in string.punctuation:
-            self.bindings[sym] = Event(sym)
-        for num in range(0, 10):  # 0~9
-            self.bindings[str(num)] = Event(num)
-        for arrow in ['Up', 'Down', 'Left', 'Right']:  # Arrow keys
-            self.bindings[arrow] = Event(arrow)
-        for key in ['space', 'BackSpace', 'Return', 'Shift_L', 'Shift_R']:
-            self.bindings[key] = Event(key)
-
-        # TODO get a better way to do this
-
-    def new_event(self, event):
-        """function that handles when an event is created"""
-        try:
-            self.bindings[event.keysym](event)
-            self.latest = event
-        except KeyError:
-            Exception('Key not in bindings dir')
-
-    def get(self):
-        """returns latest event"""
-        return self.latest
-
-
-class Event:
-    """Class to manage an event happening"""
-
-    def __init__(self, sym):
-        self.func = None
-
-    def __call__(self, event):
-        """call the bound event if there is one"""
-        try:
-            self.func(event)
-        except TypeError:
-            pass
-        # finally:
-        #     print(f'key: {event.keysym}, state: {event.state}, coords: {event.x, event.y}')
-
-    # TODO check redundancy with the handler
-
+    def bind_key(self, key, func):
+        if key in self.bindings.keys():
+            self.window.bind_all(self.bindings[key], func)
+        else:
+            raise LucidError('Key not found in bindings: {}'.format(key))
 
 class Object:
     """Class to manage base level attributes and commands of all objects """
