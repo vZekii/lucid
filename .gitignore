@@ -30,3 +30,16 @@ venv.bak/
 
 # Pycharm
 .idea/
+
+# Documentation and hsc submission
+/diagrams
+/docs
+/lucid
+/Zach Clare Submission
+*.zip
+code_display.py
+
+# project testing
+/experimental
+/tests
+*.txt
